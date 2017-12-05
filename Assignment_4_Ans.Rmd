@@ -1,0 +1,127 @@
+---
+title: "Assignment 4, PCA"
+author: "Zhulin Yu"
+date: "11/2/2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r Load libraries}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(corrplot)
+```
+
+Load Data
+```{r Load data}
+D1 = read.csv("Assistments-confidence.csv")
+D1 = dplyr::select(D1, -c(id))
+```
+
+Corr
+```{r Corr}
+COR <- cor(D1)
+
+corrplot(COR, order="AOE", method="circle", tl.pos="lt", type="upper",        
+tl.col="black", tl.cex=0.6, tl.srt=45, 
+        addCoef.col="black", addCoefasPercent = TRUE,
+        sig.level=0.50, insig = "blank")
+
+#Study your correlogram image and save it, you will need it later
+```
+
+```{r Center data except for mean_correct}
+D2 <- dplyr::select(D1, -c(mean_correct))
+
+#The, scale and center your data for easier interpretation
+D2 <- scale(D2, center = TRUE)
+```
+
+```{r PCA}
+pca <- prcomp(D2, scale = TRUE)
+
+pca$sdev
+
+#To convert this into variance accounted for we can square it, these numbers are proportional to the eigenvalue
+pca$sdev^2
+
+#A summary of our pca will give us the proportion of variance accounted for by each component
+print(summary(pca))
+
+#We can look at this to get an idea of which components we should keep and which we should drop
+plot(pca, type = "lines")
+```
+
+```{r Check linear combination of all PCs}
+matplot(t(abs(pca$rotation)), type = "p", lty = 1:5, lwd = 1, pch = NULL, col = 1:6)
+```
+
+# Part II
+```{r }
+D3 <- as.data.frame(pca$x)
+
+#Attach the variable "mean_correct" from your original data frame to D3.
+D4 <- cbind(D3, as.data.frame(D1$mean_correct))
+
+#Now re-run your scatterplots and correlations between the transformed data and mean_correct. If you had dropped some components would you have lost important infomation about mean_correct?
+
+pairs(D4)
+```
+
+```{r Plot corr}
+COR2 <- cor(D4)
+
+corrplot(COR2, order="AOE", method="circle", tl.pos="lt", type="upper",        
+tl.col="black", tl.cex=0.6, tl.srt=45, 
+        addCoef.col="black", addCoefasPercent = TRUE,
+        sig.level=0.050, insig = "blank")
+
+fit = lm(D4$`D1$mean_correct` ~ D4$PC1 + D4$PC2 + D4$PC3 + D4$PC4 + D4$PC5 + D4$PC6)
+summary(fit)
+```
+## Drop PC6
+```{r}
+D5 = dplyr::select(D4, -c(PC6))
+pairs(D5)
+
+COR3 <- cor(D5)
+
+corrplot(COR3, order="AOE", method="circle", tl.pos="lt", type="upper",        
+tl.col="black", tl.cex=0.6, tl.srt=45, 
+        addCoef.col="black", addCoefasPercent = TRUE,
+        sig.level=0.050, insig = "blank")
+
+fit2 = lm(D5$`D1$mean_correct` ~ D5$PC1 + D5$PC2 + D5$PC3 + D5$PC4 + D5$PC5)
+summary(fit2)
+```
+```{r}
+pca$rotation
+
+#Examine the eigenvectors, notice that they are a little difficult to interpret. It is much easier to make sense of them if we make them proportional within each component
+
+loadings <- abs(pca$rotation) #abs() will make all eigenvectors positive
+
+sweep(loadings, 2, colSums(loadings), "/") #sweep() computes each row as a proportion of the column. (There must be a way to do this with dplyr()?)
+
+#Now examine your components and try to come up with substantive descriptions of what some might represent?
+
+#You can generate a biplot to help you, though these can be a bit confusing. They plot the transformed data by the first two components. Therefore, the axes represent the direction of maximum variance. Then mapped onto this point cloud are the original directions of the variables, depicted as red arrows. It is supposed to provide a visualization of which variables "go together". Variables that possibly represent the same underlying construct point in the same direction.  
+
+biplot(pca)
+
+#Calculate values for each student that represent these your composite variables and then create a new correlogram showing their relationship to mean_correct.
+
+```
+# Part III
+```{r}
+K1 = read.csv("humor_data.csv")
+
+affiliative = (((6-K1$Q1) + K1$Q5 + (6-K1$Q9) + K1$Q13 + (6-K1$Q17) + K1$Q21 + (6-K1$Q25) + (6-K1$Q29))/8)
+selfenhancing = ((K1$Q2 + K1$Q6 + K1$Q10 + K1$Q14 + K1$Q18 + K1$Q22 + K1$Q26 + K1$Q30)/8)
+aggressive = ((K1$Q3+ K1$Q7 + K1$Q11 + K1$Q15 + K1$Q19 + K1$Q23 + K1$Q27 + K1$Q31)/8)
+selfdefeating = ((K1$Q4 + K1$Q8 + K1$Q12 + K1$Q16 + K1$Q20 + K1$Q24 + K1$Q28 + K1$Q32)/8)
+```
