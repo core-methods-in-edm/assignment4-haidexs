@@ -15,14 +15,14 @@ library(tidyr)
 library(ggplot2)
 library(corrplot)
 ```
-
+# Part I
 Load Data
 ```{r Load data}
 D1 = read.csv("Assistments-confidence.csv")
 D1 = dplyr::select(D1, -c(id))
 ```
 
-Corr
+Correlogram Image
 ```{r Corr}
 COR <- cor(D1)
 
@@ -33,7 +33,7 @@ tl.col="black", tl.cex=0.6, tl.srt=45,
 
 #Study your correlogram image and save it, you will need it later
 ```
-
+Remove mean_correct
 ```{r Center data except for mean_correct}
 D2 <- dplyr::select(D1, -c(mean_correct))
 
@@ -41,9 +41,10 @@ D2 <- dplyr::select(D1, -c(mean_correct))
 D2 <- scale(D2, center = TRUE)
 ```
 
+Perform PCA
 ```{r PCA}
-pca <- prcomp(D2, scale = TRUE)
 
+pca <- prcomp(D2, scale = TRUE)
 pca$sdev
 
 #To convert this into variance accounted for we can square it, these numbers are proportional to the eigenvalue
@@ -55,12 +56,14 @@ print(summary(pca))
 #We can look at this to get an idea of which components we should keep and which we should drop
 plot(pca, type = "lines")
 ```
-
+Check linear combinatino of all PCs
 ```{r Check linear combination of all PCs}
 matplot(t(abs(pca$rotation)), type = "p", lty = 1:5, lwd = 1, pch = NULL, col = 1:6)
 ```
 
 # Part II
+
+Look at transformed data
 ```{r }
 D3 <- as.data.frame(pca$x)
 
@@ -71,7 +74,7 @@ D4 <- cbind(D3, as.data.frame(D1$mean_correct))
 
 pairs(D4)
 ```
-
+Correlogram Image for Transformed Data
 ```{r Plot corr}
 COR2 <- cor(D4)
 
@@ -83,7 +86,7 @@ tl.col="black", tl.cex=0.6, tl.srt=45,
 fit = lm(D4$`D1$mean_correct` ~ D4$PC1 + D4$PC2 + D4$PC3 + D4$PC4 + D4$PC5 + D4$PC6)
 summary(fit)
 ```
-## Drop PC6
+Drop PC6
 ```{r}
 D5 = dplyr::select(D4, -c(PC6))
 pairs(D5)
@@ -98,6 +101,7 @@ tl.col="black", tl.cex=0.6, tl.srt=45,
 fit2 = lm(D5$`D1$mean_correct` ~ D5$PC1 + D5$PC2 + D5$PC3 + D5$PC4 + D5$PC5)
 summary(fit2)
 ```
+Eigenvectors
 ```{r}
 pca$rotation
 
@@ -107,21 +111,105 @@ loadings <- abs(pca$rotation) #abs() will make all eigenvectors positive
 
 sweep(loadings, 2, colSums(loadings), "/") #sweep() computes each row as a proportion of the column. (There must be a way to do this with dplyr()?)
 
+#If using dplyr(), we can first use summarise_each to calculate the column mean and expand the means to a 6x6 matrix
+tmp = as.numeric(rep(dplyr::summarise_each(as.data.frame(loadings), funs(sum)), each = 6), nrow = 6)
+
+# And then divide loadings by the column means:
+loadings/tmp
+
+# The result is the same as out of sweep().
+
 #Now examine your components and try to come up with substantive descriptions of what some might represent?
 
 #You can generate a biplot to help you, though these can be a bit confusing. They plot the transformed data by the first two components. Therefore, the axes represent the direction of maximum variance. Then mapped onto this point cloud are the original directions of the variables, depicted as red arrows. It is supposed to provide a visualization of which variables "go together". Variables that possibly represent the same underlying construct point in the same direction.  
 
 biplot(pca)
 
-#Calculate values for each student that represent these your composite variables and then create a new correlogram showing their relationship to mean_correct.
-
+# From the plot, we can see that mean_hint and mean_attempt seem to represent the same underlying construct, though we do not know what that is.
 ```
+
+Calculate values for each student that represent these your composite variables and then create a new correlogram showing their relationship to mean_correct.
+
+```{r}
+# Values for each student that represent the composite variables are the transformed data from the pca result. So their relationship to mean_correct is the correlogram image above. We can see that PC2 is most correlated with mean_correct, followed by PC1 and then PC4. PC3 and PC5 are almost un-correlated with mean_correct at all.
+```
+
 # Part III
+
+According to the codebook, all questions are grouped into 4 sections: affiliative, selfenhancing, aggressive, and selfdefeating.
+
 ```{r}
 K1 = read.csv("humor_data.csv")
-
-affiliative = (((6-K1$Q1) + K1$Q5 + (6-K1$Q9) + K1$Q13 + (6-K1$Q17) + K1$Q21 + (6-K1$Q25) + (6-K1$Q29))/8)
-selfenhancing = ((K1$Q2 + K1$Q6 + K1$Q10 + K1$Q14 + K1$Q18 + K1$Q22 + K1$Q26 + K1$Q30)/8)
-aggressive = ((K1$Q3+ K1$Q7 + K1$Q11 + K1$Q15 + K1$Q19 + K1$Q23 + K1$Q27 + K1$Q31)/8)
-selfdefeating = ((K1$Q4 + K1$Q8 + K1$Q12 + K1$Q16 + K1$Q20 + K1$Q24 + K1$Q28 + K1$Q32)/8)
+#affiliative = (((6-K1$Q1) + K1$Q5 + (6-K1$Q9) + K1$Q13 + (6-K1$Q17) + K1$Q21 + (6-K1$Q25) + (6-K1$Q29))/8)
+#selfenhancing = ((K1$Q2 + K1$Q6 + K1$Q10 + K1$Q14 + K1$Q18 + K1$Q22 + K1$Q26 + K1$Q30)/8)
+#aggressive = ((K1$Q3+ K1$Q7 + K1$Q11 + K1$Q15 + K1$Q19 + K1$Q23 + K1$Q27 + K1$Q31)/8)
+#selfdefeating = ((K1$Q4 + K1$Q8 + K1$Q12 + K1$Q16 + K1$Q20 + K1$Q24 + K1$Q28 + K1$Q32)/8)
 ```
+
+I want to validate whether the 32 questions are designed (categorized) reasonably. That is, if performing a PCA on the scores of Q1-Q32, whether these variables form 4 PCs. Since 5 questions are reverse-coded, we convert the scores by distracting from 6.
+
+```{r}
+K2 = K1 %>% select(c(1:32))
+K2$Q1 = 6 - K2$Q1
+K2$Q9 = 6 - K2$Q9
+K2$Q17 = 6 - K2$Q17
+K2$Q25 = 6 - K2$Q25
+K2$Q29 = 6 - K2$Q29
+K2 <- scale(K2, center = TRUE)
+```
+
+Perform PCA
+
+```{r}
+pca2 <- prcomp(K2, scale = TRUE)
+pca2$sdev
+pca2$sdev^2
+print(summary(pca2))
+
+plot(pca2, type = "lines")
+```
+
+It seems we could keep the first 6 or even more components.
+
+More importantly, let's check how the questions are grouped.
+
+We look at the projection of all questions on the first few PCs.
+
+```{r}
+# First, PC1 and PC2
+biplot(pca2, choices = c(1,2))
+```
+
+We can see four groups of vectors, pointing at different directions (many are hard to identify from plot):
+
+1, Q22
+
+2, Q4, Q8, Q20, Q12, Q32, Q24, ...
+
+3, Q9, Q18, Q2, Q6, Q13, Q14, Q26, Q10, Q18, Q9, Q30, Q25, Q29, ...
+
+4, Q23, Q31, Q15, Q27, Q16
+
+```{r}
+# Then, PC2 and PC3
+biplot(pca2, choices = c(2,3))
+```
+
+Again, we can see 4 groups of vectors.
+
+1, Q20, Q24, Q28, Q12, Q32, Q8, ...
+
+2, Q11, Q27, Q19, ...
+
+3, Q20, ...
+
+4, Q14, Q30, ...
+
+```{r}
+# And PC1 and PC3
+biplot(pca2, choices = c(1,3))
+```
+
+We also try PC1-PC4, PC2-PC4, etc.
+
+It is always hard to imagine PCs in high-dimensional space. Therefore, we could only draw some implications from the projection. And it seems we do have 4 groups (of vectors, i.e., questions) and many follow the original groups (Q(1,5,9,13,17,21,25,29), Q(2,6,10,14,18,22,26,30), Q(3,7,11,15,19,23,27,31), Q(4,8,12,16,20,24,28,32)), though not identical.
